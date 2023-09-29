@@ -1,13 +1,13 @@
 const config = {
   import: {
-    url: "https://10.10.100.171:7071/service/admin/soap/",
+    url: "https://10.10.100.253:7071/service/admin/soap/",
     username: "admin",
-    password: "Taffeta123#",
+    password: "Password",
   },
   export: {
-    url: "https://10.10.100.172:7071/service/admin/soap/",
+    url: "https://10.10.100.254:7071/service/admin/soap/",
     username: "admin",
-    password: "Taffeta123#",
+    password: "Password",
   },
 };
 
