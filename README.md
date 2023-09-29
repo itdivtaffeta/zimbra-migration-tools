@@ -9,7 +9,7 @@ The **zimbra-migration-tools** project is a set of tools designed to facilitate 
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/your-username/zimbra-migration-tools.git
+   git clone https://github.com/itdivtaffeta/zimbra-migration-tools.git
    ```
 
 2. Install dependencies:
