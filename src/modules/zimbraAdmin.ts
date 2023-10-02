@@ -1,7 +1,6 @@
 import axios from "axios";
 import https from "https";
 import { load } from "cheerio";
-import fs from "fs";
 import { ZimbraAccount } from "../types/zimbra";
 import { ImportAttributes } from "../types/attribute";
 
@@ -10,13 +9,74 @@ axios.defaults.httpsAgent = new https.Agent({
   rejectUnauthorized: false,
 });
 
-class ZimbraSoap {
+class ZimbraAdminSoap {
   zimbraURL: string;
   zimbraToken: string;
 
   constructor(zimbraURL: string, zimbraToken: string) {
     this.zimbraURL = zimbraURL;
     this.zimbraToken = zimbraToken;
+  }
+
+  private generateAttributesXML(options: ImportAttributes) {
+    const {
+      forwardingAddresses,
+      hiddenForwardingAddresses,
+      firstName,
+      middleName,
+      lastName,
+      notes,
+      quota,
+      description,
+      incomingFilter,
+      outgoingFilter,
+      zimbraAuthLdapExternalDn,
+      status,
+    } = options;
+
+    const forwardingAddressesXml = forwardingAddresses
+      ? `<a n="zimbraPrefMailForwardingAddress">${forwardingAddresses}</a>`
+      : "";
+
+    const hiddenForwardingAddressesXml = hiddenForwardingAddresses
+      ? hiddenForwardingAddresses
+          .map((address) => `<a n="zimbraMailForwardingAddress">${address}</a>`)
+          .join("")
+      : "";
+
+    const firstNameXml = firstName ? `<a n="givenName">${firstName}</a>` : "";
+    const middleNameXml = middleName ? `<a n="initials">${middleName}</a>` : "";
+    const lastNameXml = lastName ? `<a n="sn">${lastName}</a>` : "";
+    const notesXml = notes ? `<a n="zimbraNotes">${notes}</a>` : "";
+    const quotaXml = quota ? `<a n="zimbraMailQuota">${quota}</a>` : "";
+    const descriptionXml = description
+      ? `<a n="description">${description}</a>`
+      : "";
+    const incomingFilterXml = incomingFilter
+      ? `<a n="zimbraMailSieveScript">${incomingFilter}</a>`
+      : "";
+    const outgoingFilterXml = outgoingFilter
+      ? `<a n="zimbraMailOutgoingSieveScript">${outgoingFilter}</a>`
+      : "";
+    const zimbraAuthLdapExternalDnXml = zimbraAuthLdapExternalDn
+      ? `<a n="zimbraAuthLdapExternalDn">${zimbraAuthLdapExternalDn}</a>`
+      : "";
+    const statusXml = status ? `<a n="zimbraAccountStatus">${status}</a>` : "";
+
+    return `
+      ${forwardingAddressesXml}
+      ${hiddenForwardingAddressesXml}
+      ${firstNameXml}
+      ${middleNameXml}
+      ${lastNameXml}
+      ${notesXml}
+      ${quotaXml}
+      ${descriptionXml}
+      ${incomingFilterXml}
+      ${outgoingFilterXml}
+      ${zimbraAuthLdapExternalDnXml}
+      ${statusXml}
+      `;
   }
 
   static async getAdminToken(
@@ -44,6 +104,53 @@ class ZimbraSoap {
 
     try {
       const { data } = await axios.post(zimbraAdminUrl, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      const $ = load(data, {
+        xmlMode: true,
+      });
+
+      const authToken = $("authToken").text();
+
+      return authToken;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async delegateAuth(account: string) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <format type="xml"/>
+                <authToken>${this.zimbraToken}</authToken>
+                <session/>
+                <userAgent name="zclient"/>
+            </context>
+        </soap:Header>
+        <soap:Body>
+            <DelegateAuthRequest xmlns="urn:zimbraAdmin">
+                <account by="name">${account}</account>
+            </DelegateAuthRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
         headers: {
           "Content-Type": "application/soap+xml",
         },
@@ -112,9 +219,17 @@ class ZimbraSoap {
           hiddenForwardingAddresses.push($el.text());
         });
 
+        const aliases: string[] = [];
+
+        $el.find("a[n='zimbraMailAlias']").each((index, el) => {
+          const $el = $(el);
+          aliases.push($el.text());
+        });
+
         accounts.push({
           id: $el.attr("id")!,
           name: $el.attr("name")!,
+          status: $el.find("a[n='zimbraAccountStatus']").text(),
           displayName: $el.find("a[n='displayName']").text(),
           firstName: $el.find("a[n='givenName']").text(),
           lastName: $el.find("a[n='sn']").text(),
@@ -133,6 +248,7 @@ class ZimbraSoap {
           zimbraAuthLdapExternalDn: $el
             .find("a[n='zimbraAuthLdapExternalDn']")
             .text(),
+          aliases,
         });
       });
 
@@ -186,9 +302,17 @@ class ZimbraSoap {
         hiddenForwardingAddresses.push($el.text());
       });
 
+      const aliases: string[] = [];
+
+      $("a[n='zimbraMailAlias']").each((index, el) => {
+        const $el = $(el);
+        aliases.push($el.text());
+      });
+
       const account: ZimbraAccount = {
         id: $("account").attr("id")!,
         name: $("account").attr("name")!,
+        status: $("a[n='zimbraAccountStatus']").text(),
         displayName: $("a[n='displayName']").text(),
         firstName: $("a[n='givenName']").text(),
         lastName: $("a[n='sn']").text(),
@@ -201,6 +325,7 @@ class ZimbraSoap {
         incomingFilter: $("a[n='zimbraMailSieveScript']").text(),
         outgoingFilter: $("a[n='zimbraMailOutgoingSieveScript']").text(),
         zimbraAuthLdapExternalDn: $("a[n='zimbraAuthLdapExternalDn']").text(),
+        aliases,
       };
 
       return account;
@@ -226,48 +351,6 @@ class ZimbraSoap {
     accountId: string;
     options?: ImportAttributes;
   }) {
-    const {
-      forwardingAddresses,
-      hiddenForwardingAddresses,
-      firstName,
-      middleName,
-      lastName,
-      notes,
-      quota,
-      description,
-      incomingFilter,
-      outgoingFilter,
-      zimbraAuthLdapExternalDn,
-    } = options;
-
-    const forwardingAddressesXml = forwardingAddresses
-      ? `<a n="zimbraPrefMailForwardingAddress">${forwardingAddresses}</a>`
-      : "";
-
-    const hiddenForwardingAddressesXml = hiddenForwardingAddresses
-      ? hiddenForwardingAddresses
-          .map((address) => `<a n="zimbraMailForwardingAddress">${address}</a>`)
-          .join("")
-      : "";
-
-    const firstNameXml = firstName ? `<a n="givenName">${firstName}</a>` : "";
-    const middleNameXml = middleName ? `<a n="initials">${middleName}</a>` : "";
-    const lastNameXml = lastName ? `<a n="sn">${lastName}</a>` : "";
-    const notesXml = notes ? `<a n="zimbraNotes">${notes}</a>` : "";
-    const quotaXml = quota ? `<a n="zimbraMailQuota">${quota}</a>` : "";
-    const descriptionXml = description
-      ? `<a n="description">${description}</a>`
-      : "";
-    const incomingFilterXml = incomingFilter
-      ? `<a n="zimbraMailSieveScript">${incomingFilter}</a>`
-      : "";
-    const outgoingFilterXml = outgoingFilter
-      ? `<a n="zimbraMailOutgoingSieveScript">${outgoingFilter}</a>`
-      : "";
-    const zimbraAuthLdapExternalDnXml = zimbraAuthLdapExternalDn
-      ? `<a n="zimbraAuthLdapExternalDn">${zimbraAuthLdapExternalDn}</a>`
-      : "";
-
     const xml = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
         <soap:Header>
@@ -278,17 +361,7 @@ class ZimbraSoap {
         <soap:Body>
           <ModifyAccountRequest xmlns="urn:zimbraAdmin">
             <id>${accountId}</id>
-            ${forwardingAddressesXml}
-            ${hiddenForwardingAddressesXml}
-            ${firstNameXml}
-            ${middleNameXml}
-            ${lastNameXml}
-            ${notesXml}
-            ${quotaXml}
-            ${descriptionXml}
-            ${incomingFilterXml}
-            ${outgoingFilterXml}
-            ${zimbraAuthLdapExternalDnXml}
+            ${this.generateAttributesXML(options)}
           </ModifyAccountRequest>
         </soap:Body>
     </soap:Envelope>`;
@@ -323,48 +396,6 @@ class ZimbraSoap {
     name: string;
     options?: ImportAttributes;
   }) {
-    const {
-      forwardingAddresses,
-      hiddenForwardingAddresses,
-      firstName,
-      middleName,
-      lastName,
-      notes,
-      quota,
-      description,
-      incomingFilter,
-      outgoingFilter,
-      zimbraAuthLdapExternalDn,
-    } = options;
-
-    const forwardingAddressesXml = forwardingAddresses
-      ? `<a n="zimbraPrefMailForwardingAddress">${forwardingAddresses}</a>`
-      : "";
-
-    const hiddenForwardingAddressesXml = hiddenForwardingAddresses
-      ? hiddenForwardingAddresses
-          .map((address) => `<a n="zimbraMailForwardingAddress">${address}</a>`)
-          .join("")
-      : "";
-
-    const firstNameXml = firstName ? `<a n="givenName">${firstName}</a>` : "";
-    const middleNameXml = middleName ? `<a n="initials">${middleName}</a>` : "";
-    const lastNameXml = lastName ? `<a n="sn">${lastName}</a>` : "";
-    const notesXml = notes ? `<a n="zimbraNotes">${notes}</a>` : "";
-    const quotaXml = quota ? `<a n="zimbraMailQuota">${quota}</a>` : "";
-    const descriptionXml = description
-      ? `<a n="description">${description}</a>`
-      : "";
-    const incomingFilterXml = incomingFilter
-      ? `<a n="zimbraMailSieveScript">${incomingFilter}</a>`
-      : "";
-    const outgoingFilterXml = outgoingFilter
-      ? `<a n="zimbraMailOutgoingSieveScript">${outgoingFilter}</a>`
-      : "";
-    const zimbraAuthLdapExternalDnXml = zimbraAuthLdapExternalDn
-      ? `<a n="zimbraAuthLdapExternalDn">${zimbraAuthLdapExternalDn}</a>`
-      : "";
-
     const xml = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
         <soap:Header>
@@ -375,18 +406,50 @@ class ZimbraSoap {
         <soap:Body>
           <CreateAccountRequest xmlns="urn:zimbraAdmin">
             <name>${name}</name>
-            ${forwardingAddressesXml}
-            ${hiddenForwardingAddressesXml}
-            ${firstNameXml}
-            ${middleNameXml}
-            ${lastNameXml}
-            ${notesXml}
-            ${quotaXml}
-            ${descriptionXml}
-            ${incomingFilterXml}
-            ${outgoingFilterXml}
-            ${zimbraAuthLdapExternalDnXml}
+            ${this.generateAttributesXML(options)}
           </CreateAccountRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async addAccountAlias({
+    accountId,
+    alias,
+  }: {
+    accountId: string;
+    alias: string;
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <AddAccountAliasRequest id="${accountId}" alias="${alias}" xmlns="urn:zimbraAdmin"/>
         </soap:Body>
     </soap:Envelope>`;
 
@@ -414,4 +477,4 @@ class ZimbraSoap {
   }
 }
 
-export default ZimbraSoap;
+export default ZimbraAdminSoap;
