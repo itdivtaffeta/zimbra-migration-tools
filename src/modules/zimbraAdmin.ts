@@ -33,7 +33,12 @@ class ZimbraAdminSoap {
       outgoingFilter,
       zimbraAuthLdapExternalDn,
       status,
+      displayName,
     } = options;
+
+    const displayNameXML = displayName
+      ? `<a n="displayName">${escapeXml(displayName)}</a>`
+      : "";
 
     const forwardingAddressesXml = forwardingAddresses
       ? `<a n="zimbraPrefMailForwardingAddress">${escapeXml(
@@ -92,6 +97,7 @@ class ZimbraAdminSoap {
       ${outgoingFilterXml}
       ${zimbraAuthLdapExternalDnXml}
       ${statusXml}
+      ${displayNameXML}
       `;
   }
 
