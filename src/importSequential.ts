@@ -8,9 +8,11 @@ import { createMountPoint, grantRight } from "./modules/migrateFolder";
 import { generateImportAttributes } from "./modules/util";
 
 const importAccountsSequential = async (
-  zimbraURL: string,
-  zimbraToken: string,
-  action: string,
+  importZimbraURL: string,
+  importZimbraToken: string,
+  exportZimbraURL: string,
+  exportZimbraToken: string,
+  action: "createAccount" | "modifyAccount",
   options: string[]
 ) => {
   //   read array of accounts from json file
@@ -34,100 +36,155 @@ const importAccountsSequential = async (
     `Found ${accounts.length} accounts in accounts.json`
   );
 
-  const zimbraAdminSoap = new ZimbraAdminSoap(zimbraURL, zimbraToken);
+  const zimbraAdminSoap = new ZimbraAdminSoap(
+    importZimbraURL,
+    importZimbraToken
+  );
 
-  // get accounts
-  const zimbraAccounts: ZimbraAccount[] = [];
-  for await (const account of accounts) {
-    try {
-      const zimbraAccount = await zimbraAdminSoap.getAccountByName(
-        account.name
-      );
-      zimbraAccounts.push({
-        ...account,
-        id: zimbraAccount.id,
-      });
-    } catch (error: any) {
-      log(
-        account.name,
-        logFile,
-        "error",
-        `Failed to get account: ${error.message}`
-      );
-    }
-  }
-
-  if (options.includes("sharedFolders")) {
-    //   grant rights
-    for await (const account of zimbraAccounts) {
+  if (action === "modifyAccount") {
+    // get accounts
+    const zimbraAccounts: ZimbraAccount[] = [];
+    for await (const account of accounts) {
       try {
-        await grantRight({
-          account,
-          zimbraAdminSoap,
+        const zimbraAccount = await zimbraAdminSoap.getAccountByName(
+          account.name
+        );
+        zimbraAccounts.push({
+          ...account,
+          id: zimbraAccount.id,
         });
-        log(account.name, logFile, "success", "Rights have been granted");
       } catch (error: any) {
         log(
           account.name,
           logFile,
           "error",
-          `Failed to grant right: ${error.message}`
+          `Failed to get account: ${error.message}`
         );
       }
     }
 
-    // create mountpoints
+    if (options.includes("sharedFolders")) {
+      //   grant rights
+      for await (const account of zimbraAccounts) {
+        try {
+          await grantRight({
+            account,
+            zimbraAdminSoap,
+          });
+          log(account.name, logFile, "success", "Rights have been granted");
+        } catch (error: any) {
+          log(
+            account.name,
+            logFile,
+            "error",
+            `Failed to grant right: ${error.message}`
+          );
+        }
+      }
+
+      // create mountpoints
+      for await (const account of zimbraAccounts) {
+        try {
+          await createMountPoint({
+            account,
+            zimbraAdminSoap,
+          });
+          log(account.name, logFile, "success", "Mountpoint has been created");
+        } catch (error: any) {
+          log(
+            account.name,
+            logFile,
+            "error",
+            `Failed to create mountpoint: ${error.message}`
+          );
+        }
+      }
+    }
+
+    if (options.length === 1 && options[0] === "sharedFolders") {
+      log("All Accounts", logFile, "info", "All accounts have been imported");
+      return;
+    }
+
+    // modify accounts
     for await (const account of zimbraAccounts) {
       try {
-        await createMountPoint({
-          account,
-          zimbraAdminSoap,
+        const attributes = generateImportAttributes(account, options);
+
+        await zimbraAdminSoap.modifyAccount({
+          accountId: account.id,
+          options: attributes,
         });
-        log(account.name, logFile, "success", "Mountpoint has been created");
+
+        if (attributes.aliases) {
+          await Promise.all(
+            attributes.aliases.map((alias) =>
+              zimbraAdminSoap.addAccountAlias({
+                accountId: account.id,
+                alias,
+              })
+            )
+          );
+        }
+
+        log(account.name, logFile, "success", "Account has been modified");
       } catch (error: any) {
         log(
           account.name,
           logFile,
           "error",
-          `Failed to create mountpoint: ${error.message}`
+          `Failed to modify account: ${error.message}`
         );
       }
     }
-  }
-
-  if (options.length === 1 && options[0] === "sharedFolders") {
-    log("All Accounts", logFile, "info", "All accounts have been imported");
-    return;
-  }
-  // modify accounts
-  for await (const account of zimbraAccounts) {
+  } else if (action === "createAccount") {
+    let zimbraAccounts: ZimbraAccount[] = [];
     try {
-      const attributes = generateImportAttributes(account, options);
-
-      await zimbraAdminSoap.modifyAccount({
-        accountId: account.id,
-        options: attributes,
-      });
-
-      if (attributes.aliases) {
-        await Promise.all(
-          attributes.aliases.map((alias) =>
-            zimbraAdminSoap.addAccountAlias({
-              accountId: account.id,
-              alias,
-            })
+      const existingZimbraAccounts = await zimbraAdminSoap.getAllAccounts();
+      zimbraAccounts = accounts.filter(
+        (account) =>
+          !existingZimbraAccounts.find(
+            (existingAccount) => existingAccount.name === account.name
           )
-        );
-      }
-
-      log(account.name, logFile, "success", "Account has been modified");
+      );
     } catch (error: any) {
       log(
-        account.name,
+        "IMPORT",
         logFile,
         "error",
-        `Failed to modify account: ${error.message}`
+        `Failed to get accounts: ${error.message}`
       );
+    }
+    // create accounts
+    for await (const account of zimbraAccounts) {
+      try {
+        const attributes = generateImportAttributes(account, options);
+
+        await zimbraAdminSoap.createAccount({
+          name: account.name,
+          options: attributes,
+        });
+
+        // if (attributes.aliases) {
+        //   await Promise.all(
+        //     attributes.aliases.map((alias) =>
+        //       zimbraAdminSoap.addAccountAlias({
+        //         accountId: account.id,
+        //         alias,
+        //       })
+        //     )
+        //   );
+        // }
+
+        log(account.name, logFile, "success", "Account has been created");
+      } catch (error: any) {
+        log(
+          account.name,
+          logFile,
+          "error",
+          `Failed to import account: ${error.message}`
+        );
+      }
     }
   }
 
