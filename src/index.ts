@@ -1,11 +1,14 @@
 import inquirer from "inquirer";
-import ZimbraSoap from "./modules/zimbra";
-import exportAccounts from "./export";
-import importAccounts from "./import";
+import ZimbraAdminSoap from "./modules/zimbraAdmin";
+import exportAccountsParallel from "./exportParallel";
+import importAccountsParallel from "./importParallel";
 import config from "./config";
+import { importAttributeOptions, exportAttributeOptions } from "./modules/util";
+import exportAccountsSequential from "./exportSequential";
+import importAccountsSequential from "./importSequential";
 
 const main = async () => {
-  const { action } = await inquirer.prompt([
+  const { action, runType } = await inquirer.prompt([
     {
       name: "action",
       type: "list",
@@ -22,12 +25,37 @@ const main = async () => {
         ,
       ],
     },
+    {
+      name: "runType",
+      type: "list",
+      message: "Select run type:",
+      choices: [
+        {
+          name: "Sequential",
+          value: "sequential",
+        },
+        {
+          name: "Parallel",
+          value: "parallel",
+        },
+        ,
+      ],
+    },
   ]);
 
   if (action === "export") {
+    const { exportAttributes } = await inquirer.prompt([
+      {
+        name: "exportAttributes",
+        type: "checkbox",
+        message: "Select additional attributes to export",
+        choices: exportAttributeOptions,
+      },
+    ]);
+
     const {
       export: {
-        url: zimbraURL,
+        adminUrl: zimbraURL,
         username: zimbraAdminUser,
         password: zimbraAdminPassword,
       },
@@ -36,7 +64,7 @@ const main = async () => {
     let zimbraToken = "";
 
     try {
-      zimbraToken = await ZimbraSoap.getAdminToken(
+      zimbraToken = await ZimbraAdminSoap.getAdminToken(
         zimbraURL,
         zimbraAdminUser,
         zimbraAdminPassword
@@ -46,7 +74,11 @@ const main = async () => {
       process.exit(1);
     }
 
-    await exportAccounts(zimbraURL, zimbraToken);
+    if (runType === "sequential") {
+      await exportAccountsSequential(zimbraURL, zimbraToken, exportAttributes);
+    } else if (runType === "parallel") {
+      await exportAccountsParallel(zimbraURL, zimbraToken, exportAttributes);
+    }
   }
   if (action === "import") {
     const { importAction } = await inquirer.prompt([
@@ -56,99 +88,92 @@ const main = async () => {
         message: "Select action:",
         choices: [
           {
-            name: "Create Accounts",
-            value: "createAccount",
-          },
-          {
             name: "Modify Accounts",
             value: "modifyAccount",
           },
-          ,
+          {
+            name: "Create Accounts",
+            value: "createAccount",
+          },
         ],
       },
     ]);
+
+    const createAttributes = importAttributeOptions.filter(
+      (option) => option.value !== "sharedFolders" && option.value !== "aliases"
+    );
 
     const { importAttributes } = await inquirer.prompt([
       {
         name: "importAttributes",
         type: "checkbox",
         message: "Select attributes to import",
-        choices: [
-          {
-            name: "First Name",
-            value: "firstName",
-          },
-          {
-            name: "Middle Name",
-            value: "middleName",
-          },
-          {
-            name: "Last Name",
-            value: "lastName",
-          },
-          {
-            name: "Display Name",
-            value: "displayName",
-          },
-          {
-            name: "Description",
-            value: "description",
-          },
-          {
-            name: "Quota",
-            value: "quota",
-          },
-          {
-            name: "Notes",
-            value: "notes",
-          },
-          {
-            name: "Filter",
-            value: "filter",
-          },
-          {
-            name: "Forwarding",
-            value: "forwarding",
-          },
-          {
-            name: "Hidden Forwarding",
-            value: "hiddenForwarding",
-          },
-          {
-            name: "zimbraAuthLdapExternalDn",
-            value: "zimbraAuthLdapExternalDn",
-          },
-        ],
+        choices:
+          importAction === "modifyAccount"
+            ? importAttributeOptions
+            : createAttributes,
       },
     ]);
 
     const {
       import: {
-        url: zimbraURL,
+        adminUrl: zimbraURL,
         username: zimbraAdminUser,
         password: zimbraAdminPassword,
+      },
+      export: {
+        adminUrl: exportZimbraURL,
+        username: exportZimbraAdminUser,
+        password: exportZimbraAdminPassword,
       },
     } = config;
 
     let zimbraToken = "";
 
     try {
-      zimbraToken = await ZimbraSoap.getAdminToken(
+      zimbraToken = await ZimbraAdminSoap.getAdminToken(
         zimbraURL,
         zimbraAdminUser,
         zimbraAdminPassword
       );
     } catch (error: any) {
-      console.error(`Failed to get Zimbra admin token: ${error.message}`);
+      console.error(
+        `Failed to get import Zimbra admin token: ${error.message}`
+      );
       process.exit(1);
     }
 
-    await importAccounts(
-      zimbraURL,
-      zimbraToken,
-      importAction,
-      importAttributes
-    );
+    let exportZimbraToken = "";
+    try {
+      exportZimbraToken = await ZimbraAdminSoap.getAdminToken(
+        exportZimbraURL,
+        exportZimbraAdminUser,
+        exportZimbraAdminPassword
+      );
+    } catch (error: any) {
+      console.error(
+        `Failed to get export Zimbra admin token: ${error.message}`
+      );
+      process.exit(1);
+    }
+
+    if (runType === "sequential") {
+      await importAccountsSequential(
+        zimbraURL,
+        zimbraToken,
+        exportZimbraURL,
+        exportZimbraToken,
+        importAction,
+        importAttributes
+      );
+    } else if (runType === "parallel") {
+      await importAccountsParallel(
+        zimbraURL,
+        zimbraToken,
+        importAction,
+        importAttributes
+      );
+    }
   }
 };
 
