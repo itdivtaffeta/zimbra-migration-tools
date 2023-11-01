@@ -1,6 +1,7 @@
 import { ZimbraFolder, ZimbraFolderLink } from "./zimbra";
 
 export interface ImportAttributes {
+  zimbraId?: string;
   firstName?: string;
   lastName?: string;
   status?: string;
