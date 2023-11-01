@@ -3,6 +3,7 @@ import https from "https";
 import { load } from "cheerio";
 import { ZimbraAccount } from "../types/zimbra";
 import { ImportAttributes } from "../types/attribute";
+import { escapeXml } from "./util";
 
 // disable SSL verification
 axios.defaults.httpsAgent = new https.Agent({
@@ -35,33 +36,48 @@ class ZimbraAdminSoap {
     } = options;
 
     const forwardingAddressesXml = forwardingAddresses
-      ? `<a n="zimbraPrefMailForwardingAddress">${forwardingAddresses}</a>`
+      ? `<a n="zimbraPrefMailForwardingAddress">${escapeXml(
+          forwardingAddresses
+        )}</a>`
       : "";
 
     const hiddenForwardingAddressesXml = hiddenForwardingAddresses
       ? hiddenForwardingAddresses
-          .map((address) => `<a n="zimbraMailForwardingAddress">${address}</a>`)
+          .map(
+            (address) =>
+              `<a n="zimbraMailForwardingAddress">${escapeXml(address)}</a>`
+          )
           .join("")
       : "";
 
-    const firstNameXml = firstName ? `<a n="givenName">${firstName}</a>` : "";
-    const middleNameXml = middleName ? `<a n="initials">${middleName}</a>` : "";
-    const lastNameXml = lastName ? `<a n="sn">${lastName}</a>` : "";
-    const notesXml = notes ? `<a n="zimbraNotes">${notes}</a>` : "";
-    const quotaXml = quota ? `<a n="zimbraMailQuota">${quota}</a>` : "";
+    const firstNameXml = firstName
+      ? `<a n="givenName">${escapeXml(firstName)}</a>`
+      : "";
+    const middleNameXml = middleName
+      ? `<a n="initials">${escapeXml(middleName)}</a>`
+      : "";
+    const lastNameXml = lastName ? `<a n="sn">${escapeXml(lastName)}</a>` : "";
+    const notesXml = notes ? `<a n="zimbraNotes">${escapeXml(notes)}</a>` : "";
+    const quotaXml = quota
+      ? `<a n="zimbraMailQuota">${escapeXml(quota)}</a>`
+      : "";
     const descriptionXml = description
-      ? `<a n="description">${description}</a>`
+      ? `<a n="description">${escapeXml(description)}</a>`
       : "";
     const incomingFilterXml = incomingFilter
-      ? `<a n="zimbraMailSieveScript">${incomingFilter}</a>`
+      ? `<a n="zimbraMailSieveScript">${escapeXml(incomingFilter)}</a>`
       : "";
     const outgoingFilterXml = outgoingFilter
-      ? `<a n="zimbraMailOutgoingSieveScript">${outgoingFilter}</a>`
+      ? `<a n="zimbraMailOutgoingSieveScript">${escapeXml(outgoingFilter)}</a>`
       : "";
     const zimbraAuthLdapExternalDnXml = zimbraAuthLdapExternalDn
-      ? `<a n="zimbraAuthLdapExternalDn">${zimbraAuthLdapExternalDn}</a>`
+      ? `<a n="zimbraAuthLdapExternalDn">${escapeXml(
+          zimbraAuthLdapExternalDn
+        )}</a>`
       : "";
-    const statusXml = status ? `<a n="zimbraAccountStatus">${status}</a>` : "";
+    const statusXml = status
+      ? `<a n="zimbraAccountStatus">${escapeXml(status)}</a>`
+      : "";
 
     return `
       ${forwardingAddressesXml}

@@ -70,7 +70,7 @@ export const generateImportAttributes = (
   return attributes;
 };
 
-export const attributeOptions = [
+export const importAttributeOptions = [
   {
     name: "First Name",
     value: "firstName",
@@ -128,3 +128,29 @@ export const attributeOptions = [
     value: "sharedFolders",
   },
 ];
+
+export const exportAttributeOptions = [
+  {
+    name: "Shared Folders",
+    value: "sharedFolders",
+  },
+];
+
+export function escapeXml(unsafe: string) {
+  return unsafe.replace(/[<>&'"]/g, function (c) {
+    switch (c) {
+      case "<":
+        return "&lt;";
+      case ">":
+        return "&gt;";
+      case "&":
+        return "&amp;";
+      case "'":
+        return "&apos;";
+      case '"':
+        return "&quot;";
+      default:
+        return c;
+    }
+  });
+}
