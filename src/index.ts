@@ -80,6 +80,7 @@ const main = async () => {
       await exportAccountsParallel(zimbraURL, zimbraToken, exportAttributes);
     }
   }
+
   if (action === "import") {
     const { importAction } = await inquirer.prompt([
       {
@@ -103,6 +104,10 @@ const main = async () => {
       (option) => option.value !== "sharedFolders" && option.value !== "aliases"
     );
 
+    const modifyAttributes = importAttributeOptions.filter(
+      (option) => option.value !== "zimbraId"
+    );
+
     const { importAttributes } = await inquirer.prompt([
       {
         name: "importAttributes",
@@ -110,7 +115,7 @@ const main = async () => {
         message: "Select attributes to import",
         choices:
           importAction === "modifyAccount"
-            ? importAttributeOptions
+            ? modifyAttributes
             : createAttributes,
       },
     ]);
@@ -121,11 +126,11 @@ const main = async () => {
         username: zimbraAdminUser,
         password: zimbraAdminPassword,
       },
-      export: {
-        adminUrl: exportZimbraURL,
-        username: exportZimbraAdminUser,
-        password: exportZimbraAdminPassword,
-      },
+      // export: {
+      //   adminUrl: exportZimbraURL,
+      //   username: exportZimbraAdminUser,
+      //   password: exportZimbraAdminPassword,
+      // },
     } = config;
 
     let zimbraToken = "";
@@ -143,26 +148,26 @@ const main = async () => {
       process.exit(1);
     }
 
-    let exportZimbraToken = "";
-    try {
-      exportZimbraToken = await ZimbraAdminSoap.getAdminToken(
-        exportZimbraURL,
-        exportZimbraAdminUser,
-        exportZimbraAdminPassword
-      );
-    } catch (error: any) {
-      console.error(
-        `Failed to get export Zimbra admin token: ${error.message}`
-      );
-      process.exit(1);
-    }
+    // let exportZimbraToken = "";
+    // try {
+    //   exportZimbraToken = await ZimbraAdminSoap.getAdminToken(
+    //     exportZimbraURL,
+    //     exportZimbraAdminUser,
+    //     exportZimbraAdminPassword
+    //   );
+    // } catch (error: any) {
+    //   console.error(
+    //     `Failed to get export Zimbra admin token: ${error.message}`
+    //   );
+    //   process.exit(1);
+    // }
 
     if (runType === "sequential") {
       await importAccountsSequential(
         zimbraURL,
         zimbraToken,
-        exportZimbraURL,
-        exportZimbraToken,
+        // exportZimbraURL,
+        // exportZimbraToken,
         importAction,
         importAttributes
       );
