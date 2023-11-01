@@ -34,7 +34,12 @@ class ZimbraAdminSoap {
       zimbraAuthLdapExternalDn,
       status,
       displayName,
+      zimbraId,
     } = options;
+
+    const zimbraIdXML = zimbraId
+      ? `<a n="zimbraId">${escapeXml(zimbraId)}</a>`
+      : "";
 
     const displayNameXML = displayName
       ? `<a n="displayName">${escapeXml(displayName)}</a>`
@@ -98,6 +103,7 @@ class ZimbraAdminSoap {
       ${zimbraAuthLdapExternalDnXml}
       ${statusXml}
       ${displayNameXML}
+      ${zimbraIdXML}
       `;
   }
 

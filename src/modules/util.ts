@@ -64,6 +64,10 @@ export const generateImportAttributes = (
       acc.folderLinks = account.folderLinks;
     }
 
+    if (option === "zimbraId") {
+      acc.zimbraId = account.id;
+    }
+
     return acc;
   }, {});
 
@@ -71,6 +75,10 @@ export const generateImportAttributes = (
 };
 
 export const importAttributeOptions = [
+  {
+    name: "Zimbra ID",
+    value: "zimbraId",
+  },
   {
     name: "First Name",
     value: "firstName",
