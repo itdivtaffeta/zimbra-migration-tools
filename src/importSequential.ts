@@ -10,8 +10,6 @@ import { generateImportAttributes } from "./modules/util";
 const importAccountsSequential = async (
   importZimbraURL: string,
   importZimbraToken: string,
-  exportZimbraURL: string,
-  exportZimbraToken: string,
   action: "createAccount" | "modifyAccount",
   options: string[]
 ) => {
