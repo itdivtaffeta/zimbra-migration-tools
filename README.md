@@ -6,11 +6,14 @@ The **zimbra-migration-tools** project is a set of tools designed to facilitate 
 
 ## Installation
 
-1. Clone the repository:
+1.  Install Node.js
+   - Download and install Node.js from [official Node.js website](https://nodejs.org/).
+   - Verify the installation by running the following commands in your terminal:
 
-   ```bash
-   git clone https://github.com/itdivtaffeta/zimbra-migration-tools.git
-   ```
+     ```bash
+     node --version
+     npm --version
+     ```
 
 2. Install dependencies:
 
