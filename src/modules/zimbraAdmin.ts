@@ -1,6 +1,6 @@
 import axios from "axios";
 import https from "https";
-import { load } from "cheerio";
+import { Cheerio, CheerioAPI, Element, load } from "cheerio";
 import { ZimbraAccount } from "../types/zimbra";
 import { ImportAttributes } from "../types/attribute";
 import { escapeXml } from "./util";
@@ -35,6 +35,13 @@ class ZimbraAdminSoap {
       status,
       displayName,
       zimbraId,
+      company,
+      street,
+      state,
+      country,
+      postalCode,
+      title,
+      city,
     } = options;
 
     const zimbraIdXML = zimbraId
@@ -89,6 +96,19 @@ class ZimbraAdminSoap {
       ? `<a n="zimbraAccountStatus">${escapeXml(status)}</a>`
       : "";
 
+    const companyXml = company
+      ? `<a n="company">${escapeXml(company)}</a>`
+      : "";
+
+    const titleXml = title ? `<a n="title">${escapeXml(title)}</a>` : "";
+    const streetXml = street ? `<a n="street">${escapeXml(street)}</a>` : "";
+    const cityXml = city ? `<a n="l">${escapeXml(city)}</a>` : "";
+    const stateXml = state ? `<a n="st">${escapeXml(state)}</a>` : "";
+    const countryXml = country ? `<a n="co">${escapeXml(country)}</a>` : "";
+    const postalCodeXml = postalCode
+      ? `<a n="postalCode">${escapeXml(postalCode)}</a>`
+      : "";
+
     return `
       ${forwardingAddressesXml}
       ${hiddenForwardingAddressesXml}
@@ -104,6 +124,13 @@ class ZimbraAdminSoap {
       ${statusXml}
       ${displayNameXML}
       ${zimbraIdXML}
+      ${companyXml}
+      ${titleXml}
+      ${streetXml}
+      ${cityXml}
+      ${stateXml}
+      ${countryXml}
+      ${postalCodeXml}
       `;
   }
 
@@ -277,6 +304,13 @@ class ZimbraAdminSoap {
             .find("a[n='zimbraAuthLdapExternalDn']")
             .text(),
           aliases,
+          company: $el.find("a[n='company']").text(),
+          title: $el.find("a[n='title']").text(),
+          street: $el.find("a[n='street']").text(),
+          city: $el.find("a[n='l']").text(),
+          state: $el.find("a[n='st']").text(),
+          postalCode: $el.find("a[n='postalCode']").text(),
+          country: $el.find("a[n='co']").text(),
         });
       });
 
@@ -354,6 +388,13 @@ class ZimbraAdminSoap {
         outgoingFilter: $("a[n='zimbraMailOutgoingSieveScript']").text(),
         zimbraAuthLdapExternalDn: $("a[n='zimbraAuthLdapExternalDn']").text(),
         aliases,
+        company: $("a[n='company']").text(),
+        title: $("a[n='title']").text(),
+        street: $("a[n='street']").text(),
+        city: $("a[n='l']").text(),
+        state: $("a[n='st']").text(),
+        postalCode: $("a[n='postalCode']").text(),
+        country: $("a[n='co']").text(),
       };
 
       return account;

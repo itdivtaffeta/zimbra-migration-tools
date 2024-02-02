@@ -14,6 +14,13 @@ export interface ImportAttributes {
   incomingFilter?: string;
   outgoingFilter?: string;
   zimbraAuthLdapExternalDn?: string;
+  company?: string;
+  title?: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
   hiddenForwardingAddresses?: string[];
   aliases?: string[];
   folders?: ZimbraFolder[];
