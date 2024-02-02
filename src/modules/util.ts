@@ -68,6 +68,19 @@ export const generateImportAttributes = (
       acc.zimbraId = account.id;
     }
 
+    if (option === "company") {
+      acc.company = account.company;
+      acc.title = account.title;
+    }
+
+    if (option === "address") {
+      acc.street = account.street;
+      acc.city = account.city;
+      acc.state = account.state;
+      acc.postalCode = account.postalCode;
+      acc.country = account.country;
+    }
+
     return acc;
   }, {});
 
@@ -134,6 +147,14 @@ export const importAttributeOptions = [
   {
     name: "Shared Folders",
     value: "sharedFolders",
+  },
+  {
+    name: "Company",
+    value: "company",
+  },
+  {
+    name: "Address",
+    value: "address",
   },
 ];
 
