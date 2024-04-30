@@ -52,3 +52,16 @@ export interface ZimbraFolderLink {
   parentFolderId?: string;
   ownerPath?: string;
 }
+
+export interface ZimbraDistributionList {
+  id: string;
+  name: string;
+  displayName: string;
+  zimbraMailStatus: string;
+  zimbraHideInGal: boolean;
+  members: string[];
+  owners: {
+    id: string;
+    name: string;
+  }[];
+}
