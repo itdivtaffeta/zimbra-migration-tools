@@ -1,8 +1,8 @@
-import log from "./modules/logging";
-import ZimbraAdminSoap from "./modules/zimbraAdmin";
+import log from "../../modules/logging";
+import ZimbraAdminSoap from "../../modules/zimbraAdmin";
 import fs from "fs";
 import moment from "moment";
-import ZimbraUserSoap from "./modules/zimbraUser";
+import ZimbraUserSoap from "../../modules/zimbraUser";
 
 const exportAccountsParallel = async (
   zimbraURL: string,

@@ -1,7 +1,7 @@
 import axios from "axios";
 import https from "https";
 import { Cheerio, CheerioAPI, Element, load } from "cheerio";
-import { ZimbraAccount } from "../types/zimbra";
+import { ZimbraAccount, ZimbraDistributionList } from "../types/zimbra";
 import { ImportAttributes } from "../types/attribute";
 import { escapeXml } from "./util";
 
@@ -521,6 +521,473 @@ class ZimbraAdminSoap {
           <AddAccountAliasRequest id="${accountId}" alias="${alias}" xmlns="urn:zimbraAdmin"/>
         </soap:Body>
     </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async getDistributionLists() {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+        <GetAllDistributionListsRequest xmlns="urn:zimbraAdmin"/>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      const $ = load(data, {
+        xmlMode: true,
+      });
+
+      const distributionLists: ZimbraDistributionList[] = [];
+
+      $("dl").each((index, el) => {
+        const $el = $(el);
+
+        // distribution list members
+        const members: string[] = [];
+        $el.find("dlm").each((index, el) => {
+          const $el = $(el);
+          members.push($el.text());
+        });
+
+        // distribution list owners
+        const owners: ZimbraDistributionList["owners"] = [];
+        $el.find("owner").each((index, el) => {
+          const $el = $(el);
+          owners.push({
+            id: $el.attr("id")!,
+            name: $el.attr("name")!,
+          });
+        });
+
+        const dl: ZimbraDistributionList = {
+          id: $el.attr("id")!,
+          name: $el.attr("name")!,
+          displayName: $el.find("a[n='displayName']").text(),
+          zimbraHideInGal: $el.find("a[n='zimbraHideInGal']").text() === "TRUE",
+          zimbraMailStatus: $el.find("a[n='zimbraMailStatus']").text(),
+          members,
+          owners,
+        };
+
+        distributionLists.push(dl);
+      });
+
+      return distributionLists;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async getDistributionListByName(name: string) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+        <GetDistributionListRequest xmlns="urn:zimbraAdmin">
+          <dl by="name">${name}</dl>
+        </GetDistributionListRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      const $ = load(data, {
+        xmlMode: true,
+      });
+
+      // distribution list members
+      const members: string[] = [];
+      $("dlm").each((index, el) => {
+        const $el = $(el);
+        members.push($el.text());
+      });
+
+      // distribution list owners
+      const owners: ZimbraDistributionList["owners"] = [];
+      $("owner").each((index, el) => {
+        const $el = $(el);
+        owners.push({
+          id: $el.attr("id")!,
+          name: $el.attr("name")!,
+        });
+      });
+
+      const dl: ZimbraDistributionList = {
+        id: $("dl").attr("id")!,
+        name: $("dl").attr("name")!,
+        displayName: $("a[n='displayName']").text(),
+        zimbraHideInGal: $("a[n='zimbraHideInGal']").text() === "TRUE",
+        zimbraMailStatus: $("a[n='zimbraMailStatus']").text(),
+        members,
+        owners,
+      };
+
+      return dl;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async createDistributionList({
+    name,
+    zimbraId,
+    displayName,
+    zimbraMailStatus,
+    zimbraHideInGal,
+  }: {
+    name: string;
+    zimbraId?: string;
+    displayName?: string;
+    zimbraMailStatus?: string;
+    zimbraHideInGal?: boolean;
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <CreateDistributionListRequest xmlns="urn:zimbraAdmin" name="${name}">
+            ${zimbraId && `<a n="zimbraId">${zimbraId}</a>`}
+            ${displayName && `<a n="displayName">${escapeXml(displayName)}</a>`}
+            ${
+              zimbraMailStatus &&
+              `<a n="zimbraMailStatus">${zimbraMailStatus}</a>`
+            }
+            ${
+              zimbraHideInGal !== undefined &&
+              `<a n="zimbraHideInGal">${zimbraHideInGal ? "TRUE" : "FALSE"}</a>`
+            }
+          </CreateDistributionListRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      const $ = load(data, {
+        xmlMode: true,
+      });
+
+      // distribution list members
+      const members: string[] = [];
+      $("dlm").each((index, el) => {
+        const $el = $(el);
+        members.push($el.text());
+      });
+
+      // distribution list owners
+      const owners: ZimbraDistributionList["owners"] = [];
+      $("owner").each((index, el) => {
+        const $el = $(el);
+        owners.push({
+          id: $el.attr("id")!,
+          name: $el.attr("name")!,
+        });
+      });
+
+      const dl: ZimbraDistributionList = {
+        id: $("dl").attr("id")!,
+        name: $("dl").attr("name")!,
+        displayName: $("a[n='displayName']").text(),
+        zimbraHideInGal: $("a[n='zimbraHideInGal']").text() === "TRUE",
+        zimbraMailStatus: $("a[n='zimbraMailStatus']").text(),
+        members,
+        owners,
+      };
+
+      return dl;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async addDistributionListMembers({
+    dlId,
+    members,
+  }: {
+    dlId: string;
+    members: string[];
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <AddDistributionListMemberRequest id="${dlId}" xmlns="urn:zimbraAdmin">
+            ${members.map((member) => `<dlm>${member}</dlm>`).join("")}
+          </AddDistributionListMemberRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async addDistributionListOwners({
+    dlId,
+    ownerIds,
+  }: {
+    dlId: string;
+    ownerIds: string[];
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <ModifyDistributionListRequest id="${dlId}" xmlns="urn:zimbraAdmin">
+            ${ownerIds
+              .map((id) => `<a n="+zimbraACE">${id} usr ownDistList</a>`)
+              .join("")}
+          </ModifyDistributionListRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async removeDistributionListMembers({
+    dlId,
+    members,
+  }: {
+    dlId: string;
+    members: string[];
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <RemoveDistributionListMemberRequest id="${dlId}" xmlns="urn:zimbraAdmin">
+            ${members.map((member) => `<dlm>${member}</dlm>`).join("")}
+          </RemoveDistributionListMemberRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async removeDistributionListOwners({
+    dlId,
+    ownerIds,
+  }: {
+    dlId: string;
+    ownerIds: string[];
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+        <soap:Header>
+            <context xmlns="urn:zimbra">
+                <authToken>${this.zimbraToken}</authToken>
+            </context>
+        </soap:Header>
+        <soap:Body>
+          <ModifyDistributionListRequest id="${dlId}" xmlns="urn:zimbraAdmin">
+            ${ownerIds
+              .map((id) => `<a n="-zimbraACE">${id} usr ownDistList</a>`)
+              .join("")}
+          </ModifyDistributionListRequest>
+        </soap:Body>
+    </soap:Envelope>`;
+
+    try {
+      const { data } = await axios.post(this.zimbraURL, xml, {
+        headers: {
+          "Content-Type": "application/soap+xml",
+        },
+      });
+
+      return data;
+    } catch (error: any) {
+      if (!error.response) throw error;
+
+      const $ = load(error.response.data, {
+        xmlMode: true,
+      });
+
+      const reason = $("soap\\:Fault soap\\:Reason soap\\:Text").text();
+
+      if (!reason) throw error;
+
+      throw new Error(reason);
+    }
+  }
+
+  async modifyDistributionList({
+    dlId,
+    displayName,
+    zimbraHideInGal,
+    zimbraMailStatus,
+  }: {
+    dlId: string;
+    displayName?: string;
+    zimbraHideInGal?: boolean;
+    zimbraMailStatus?: string;
+  }) {
+    const xml = `<?xml version="1.0" encoding="utf-8"?>
+    <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
+    <soap:Header>
+        <context xmlns="urn:zimbra">
+            <authToken>${this.zimbraToken}</authToken>
+        </context>
+    </soap:Header>
+    <soap:Body>
+      <ModifyDistributionListRequest id="${dlId}" xmlns="urn:zimbraAdmin">
+        ${displayName && `<a n="displayName">${escapeXml(displayName)}</a>`}
+        ${
+          zimbraHideInGal !== undefined &&
+          `<a n="zimbraHideInGal">${zimbraHideInGal ? "TRUE" : "FALSE"}</a>`
+        }
+        ${zimbraMailStatus && `<a n="zimbraMailStatus">${zimbraMailStatus}</a>`}
+      </ModifyDistributionListRequest>
+    </soap:Body>
+</soap:Envelope>`;
 
     try {
       const { data } = await axios.post(this.zimbraURL, xml, {

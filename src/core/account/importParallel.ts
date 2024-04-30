@@ -1,10 +1,10 @@
 import fs from "fs";
 import moment from "moment";
-import log from "./modules/logging";
-import ZimbraAdminSoap from "./modules/zimbraAdmin";
-import { ZimbraAccount } from "./types/zimbra";
-import { createMountPoint, grantRight } from "./modules/migrateFolder";
-import { generateImportAttributes } from "./modules/util";
+import log from "../../modules/logging";
+import ZimbraAdminSoap from "../../modules/zimbraAdmin";
+import { ZimbraAccount } from "../../types/zimbra";
+import { createMountPoint, grantRight } from "../../modules/migrateFolder";
+import { generateImportAccountAttributes } from "../../modules/util";
 
 const importAccountsParallel = async (
   zimbraURL: string,
@@ -132,7 +132,7 @@ const importAccountsParallel = async (
     // modify accounts
     await Promise.allSettled(
       zimbraAccounts.map(async (account) => {
-        const attributes = generateImportAttributes(account, options);
+        const attributes = generateImportAccountAttributes(account, options);
 
         await zimbraAdminSoap.modifyAccount({
           accountId: account.id,

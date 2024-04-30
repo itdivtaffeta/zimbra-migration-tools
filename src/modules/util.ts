@@ -1,7 +1,7 @@
 import { ImportAttributes } from "../types/attribute";
 import { ZimbraAccount } from "../types/zimbra";
 
-export const generateImportAttributes = (
+export const generateImportAccountAttributes = (
   account: ZimbraAccount,
   options: string[]
 ) => {
@@ -86,84 +86,6 @@ export const generateImportAttributes = (
 
   return attributes;
 };
-
-export const importAttributeOptions = [
-  {
-    name: "Zimbra ID",
-    value: "zimbraId",
-  },
-  {
-    name: "First Name",
-    value: "firstName",
-  },
-  {
-    name: "Middle Name",
-    value: "middleName",
-  },
-  {
-    name: "Last Name",
-    value: "lastName",
-  },
-  {
-    name: "Display Name",
-    value: "displayName",
-  },
-  {
-    name: "Status",
-    value: "status",
-  },
-  {
-    name: "Aliases",
-    value: "aliases",
-  },
-  {
-    name: "Description",
-    value: "description",
-  },
-  {
-    name: "Quota",
-    value: "quota",
-  },
-  {
-    name: "Notes",
-    value: "notes",
-  },
-  {
-    name: "Filter",
-    value: "filter",
-  },
-  {
-    name: "Forwarding",
-    value: "forwarding",
-  },
-  {
-    name: "Hidden Forwarding",
-    value: "hiddenForwarding",
-  },
-  {
-    name: "zimbraAuthLdapExternalDn",
-    value: "zimbraAuthLdapExternalDn",
-  },
-  {
-    name: "Shared Folders",
-    value: "sharedFolders",
-  },
-  {
-    name: "Company",
-    value: "company",
-  },
-  {
-    name: "Address",
-    value: "address",
-  },
-];
-
-export const exportAttributeOptions = [
-  {
-    name: "Shared Folders",
-    value: "sharedFolders",
-  },
-];
 
 export function escapeXml(unsafe: string) {
   return unsafe.replace(/[<>&'"]/g, function (c) {
