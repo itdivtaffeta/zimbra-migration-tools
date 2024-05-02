@@ -56,6 +56,7 @@ export interface ZimbraFolderLink {
 export interface ZimbraDistributionList {
   id: string;
   name: string;
+  description: string;
   displayName: string;
   zimbraMailStatus: string;
   zimbraHideInGal: boolean;

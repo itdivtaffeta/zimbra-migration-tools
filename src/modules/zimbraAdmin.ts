@@ -594,6 +594,7 @@ class ZimbraAdminSoap {
         const dl: ZimbraDistributionList = {
           id: $el.attr("id")!,
           name: $el.attr("name")!,
+          description: $el.find("a[n='description']").text() || "",
           displayName: $el.find("a[n='displayName']").text(),
           zimbraHideInGal: $el.find("a[n='zimbraHideInGal']").text() === "TRUE",
           zimbraMailStatus: $el.find("a[n='zimbraMailStatus']").text(),
@@ -666,6 +667,7 @@ class ZimbraAdminSoap {
       const dl: ZimbraDistributionList = {
         id: $("dl").attr("id")!,
         name: $("dl").attr("name")!,
+        description: $("a[n='description']").text() || "",
         displayName: $("a[n='displayName']").text(),
         zimbraHideInGal: $("a[n='zimbraHideInGal']").text() === "TRUE",
         zimbraMailStatus: $("a[n='zimbraMailStatus']").text(),
@@ -695,12 +697,14 @@ class ZimbraAdminSoap {
     displayName,
     zimbraMailStatus,
     zimbraHideInGal,
+    description,
   }: {
     name: string;
     zimbraId?: string;
     displayName?: string;
     zimbraMailStatus?: string;
     zimbraHideInGal?: boolean;
+    description?: string;
   }) {
     const xml = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
@@ -710,16 +714,31 @@ class ZimbraAdminSoap {
             </context>
         </soap:Header>
         <soap:Body>
-          <CreateDistributionListRequest xmlns="urn:zimbraAdmin" name="${name}">
-            ${zimbraId && `<a n="zimbraId">${zimbraId}</a>`}
-            ${displayName && `<a n="displayName">${escapeXml(displayName)}</a>`}
+          <CreateDistributionListRequest xmlns="urn:zimbraAdmin" name="${escapeXml(
+            name
+          )}">
+            ${zimbraId ? `<a n="zimbraId">${escapeXml(zimbraId)}</a>` : ""}
             ${
-              zimbraMailStatus &&
-              `<a n="zimbraMailStatus">${zimbraMailStatus}</a>`
+              displayName
+                ? `<a n="displayName">${escapeXml(displayName)}</a>`
+                : ""
             }
             ${
-              zimbraHideInGal !== undefined &&
-              `<a n="zimbraHideInGal">${zimbraHideInGal ? "TRUE" : "FALSE"}</a>`
+              zimbraMailStatus
+                ? `<a n="zimbraMailStatus">${escapeXml(zimbraMailStatus)}</a>`
+                : ""
+            }
+            ${
+              zimbraHideInGal !== undefined
+                ? `<a n="zimbraHideInGal">${
+                    zimbraHideInGal ? "TRUE" : "FALSE"
+                  }</a>`
+                : ""
+            }
+            ${
+              description
+                ? `<a n="description">${escapeXml(description)}</a>`
+                : ""
             }
           </CreateDistributionListRequest>
         </soap:Body>
@@ -756,6 +775,7 @@ class ZimbraAdminSoap {
       const dl: ZimbraDistributionList = {
         id: $("dl").attr("id")!,
         name: $("dl").attr("name")!,
+        description: $("a[n='description']").text() || "",
         displayName: $("a[n='displayName']").text(),
         zimbraHideInGal: $("a[n='zimbraHideInGal']").text() === "TRUE",
         zimbraMailStatus: $("a[n='zimbraMailStatus']").text(),
@@ -964,12 +984,15 @@ class ZimbraAdminSoap {
     displayName,
     zimbraHideInGal,
     zimbraMailStatus,
+    description,
   }: {
     dlId: string;
     displayName?: string;
     zimbraHideInGal?: boolean;
     zimbraMailStatus?: string;
+    description?: string;
   }) {
+    console.log(description);
     const xml = `<?xml version="1.0" encoding="utf-8"?>
     <soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope">
     <soap:Header>
@@ -979,16 +1002,23 @@ class ZimbraAdminSoap {
     </soap:Header>
     <soap:Body>
       <ModifyDistributionListRequest id="${dlId}" xmlns="urn:zimbraAdmin">
-        ${displayName && `<a n="displayName">${escapeXml(displayName)}</a>`}
+        ${displayName ? `<a n="displayName">${escapeXml(displayName)}</a>` : ""}
+        ${description ? `<a n="description">${escapeXml(description)}</a>` : ""}
         ${
-          zimbraHideInGal !== undefined &&
-          `<a n="zimbraHideInGal">${zimbraHideInGal ? "TRUE" : "FALSE"}</a>`
+          zimbraHideInGal !== undefined
+            ? `<a n="zimbraHideInGal">${zimbraHideInGal ? "TRUE" : "FALSE"}</a>`
+            : ""
         }
-        ${zimbraMailStatus && `<a n="zimbraMailStatus">${zimbraMailStatus}</a>`}
+        ${
+          zimbraMailStatus
+            ? `<a n="zimbraMailStatus">${escapeXml(zimbraMailStatus)}</a>`
+            : ""
+        }
       </ModifyDistributionListRequest>
     </soap:Body>
 </soap:Envelope>`;
 
+    console.log(xml);
     try {
       const { data } = await axios.post(this.zimbraURL, xml, {
         headers: {
