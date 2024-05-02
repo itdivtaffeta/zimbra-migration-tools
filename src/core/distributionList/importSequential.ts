@@ -59,6 +59,9 @@ const createDLAction = async ({
         displayName: options.includes("displayName")
           ? distributionList.displayName
           : undefined,
+        description: options.includes("description")
+          ? distributionList.description
+          : undefined,
         zimbraHideInGal: options.includes("zimbraHideInGal")
           ? distributionList.zimbraHideInGal
           : undefined,
@@ -192,7 +195,7 @@ const modifyDLAction = async ({
       );
     }
   }
-
+  console.log(options);
   // modify distribution lists
   for await (const distributionList of zimbraDistributionLists) {
     try {
@@ -200,6 +203,9 @@ const modifyDLAction = async ({
         dlId: distributionList.id,
         displayName: options.includes("displayName")
           ? distributionList.displayName
+          : undefined,
+        description: options.includes("description")
+          ? distributionList.description
           : undefined,
         zimbraHideInGal: options.includes("zimbraHideInGal")
           ? distributionList.zimbraHideInGal

@@ -108,4 +108,8 @@ export const importDistributionListAttributeOptions = [
     name: "Owners",
     value: "owners",
   },
+  {
+    name: "Description",
+    value: "description",
+  },
 ] as const;
